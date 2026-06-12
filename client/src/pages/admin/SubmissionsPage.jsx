@@ -23,7 +23,6 @@ const SubmissionsPage = () => {
     }
   };
 
-  // eslint-disable-next-line
   useEffect(() => {
     loadSubmissions();
   }, []);

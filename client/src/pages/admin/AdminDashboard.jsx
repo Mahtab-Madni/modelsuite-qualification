@@ -53,7 +53,6 @@ const AdminDashboard = () => {
     }
   };
 
-  // eslint-disable-next-line
   useEffect(() => {
     loadTasks();
   }, []);

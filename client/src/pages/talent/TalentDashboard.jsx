@@ -31,7 +31,6 @@ const TalentDashboard = () => {
     }
   };
 
-  // eslint-disable-next-line
   useEffect(() => {
     loadAvailable();
     loadMyTasks();
