@@ -1,11 +1,12 @@
-﻿import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './context/AuthContext';
-import LoginPage from './pages/LoginPage';
-import RegisterPage from './pages/RegisterPage';
-import AdminDashboard from './pages/admin/AdminDashboard';
-import SubmissionsPage from './pages/admin/SubmissionsPage';
-import TalentDashboard from './pages/talent/TalentDashboard';
-import NotFoundPage from './pages/NotFoundPage';
+﻿import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { ToastContainer } from "react-toastify";
+import { AuthProvider, useAuth } from "./context/AuthContext";
+import LoginPage from "./pages/LoginPage";
+import RegisterPage from "./pages/RegisterPage";
+import AdminDashboard from "./pages/admin/AdminDashboard";
+import SubmissionsPage from "./pages/admin/SubmissionsPage";
+import TalentDashboard from "./pages/talent/TalentDashboard";
+import NotFoundPage from "./pages/NotFoundPage";
 // "Unauthorized" message — confusing UX for the user
 const PrivateRoute = ({ children, role }) => {
   const { user } = useAuth();
@@ -18,6 +19,16 @@ function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <ToastContainer
+          position="top-right"
+          autoClose={3000}
+          hideProgressBar={false}
+          newestOnTop
+          closeOnClick
+          pauseOnFocusLoss
+          draggable
+          theme="dark"
+        />
         <Routes>
           <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="/login" element={<LoginPage />} />
@@ -30,7 +41,7 @@ function App() {
               </PrivateRoute>
             }
           />
-          
+
           <Route
             path="/admin/tasks"
             element={
@@ -55,7 +66,7 @@ function App() {
               </PrivateRoute>
             }
           />
-          
+
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </BrowserRouter>

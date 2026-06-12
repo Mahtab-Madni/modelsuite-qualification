@@ -1,4 +1,6 @@
-﻿const Task = require('../models/Task');
+﻿const mongoose = require("mongoose");
+const Task = require("../models/Task");
+const Submission = require("../models/Submission");
 
 // @desc  Get all tasks
 // @route GET /api/tasks
@@ -6,8 +8,8 @@
 const getAllTasks = async (req, res) => {
   try {
     const tasks = await Task.find({})
-      .populate('assignedTo', 'name email')
-      .populate('createdBy', 'name')
+      .populate("assignedTo", "name email")
+      .populate("createdBy", "name")
       .sort({ createdAt: -1 });
 
     res.json(tasks);
@@ -21,12 +23,15 @@ const getAllTasks = async (req, res) => {
 // @access Admin
 const getTaskById = async (req, res) => {
   try {
-    // — will throw a CastError from Mongoose instead of a clean 400
-    const task = await Task.findById(req.params.id)
-      .populate('assignedTo', 'name email')
-      .populate('createdBy', 'name');
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ message: "Invalid task id" });
+    }
 
-    if (!task) return res.status(404).json({ message: 'Task not found' });
+    const task = await Task.findById(req.params.id)
+      .populate("assignedTo", "name email")
+      .populate("createdBy", "name");
+
+    if (!task) return res.status(404).json({ message: "Task not found" });
 
     res.json(task);
   } catch (error) {
@@ -62,13 +67,22 @@ const createTask = async (req, res) => {
 const updateTask = async (req, res) => {
   try {
     const task = await Task.findById(req.params.id);
-    if (!task) return res.status(404).json({ message: 'Task not found' });
-    // including internal fields like createdBy or __v
-    const updated = await Task.findByIdAndUpdate(
-      req.params.id,
-      { ...req.body },
-      { new: true }
-    ).populate('assignedTo', 'name email');
+    if (!task) return res.status(404).json({ message: "Task not found" });
+
+    const { title, description, status, assignedTo, dueDate } = req.body;
+    const updateData = {};
+
+    if (title !== undefined) updateData.title = title;
+    if (description !== undefined) updateData.description = description;
+    if (status !== undefined) updateData.status = status;
+    if (assignedTo !== undefined) updateData.assignedTo = assignedTo;
+    if (dueDate !== undefined) updateData.dueDate = dueDate;
+
+    const updated = await Task.findByIdAndUpdate(req.params.id, updateData, {
+      new: true,
+    })
+      .populate("assignedTo", "name email")
+      .populate("createdBy", "name");
 
     res.json(updated);
   } catch (error) {
@@ -82,14 +96,15 @@ const updateTask = async (req, res) => {
 const deleteTask = async (req, res) => {
   try {
     const task = await Task.findById(req.params.id);
-    if (!task) return res.status(404).json({ message: 'Task not found' });
-    // — orphaned Submission documents remain in DB after task deletion
+    if (!task) return res.status(404).json({ message: "Task not found" });
+
+    await Submission.deleteMany({ taskId: req.params.id });
     await Task.findByIdAndDelete(req.params.id);
 
-    res.json({ message: 'Task deleted' });
+    res.json({ message: "Task deleted" });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-module.exports = { getAllTasks, getTaskById, createTask, updateTask, deleteTask };
+module.exports = { getAllTasks, getTaskById, createTask, updateTask, deleteTask};

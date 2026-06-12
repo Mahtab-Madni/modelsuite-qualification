@@ -1,4 +1,4 @@
-﻿const mongoose = require('mongoose');
+﻿const mongoose = require("mongoose");
 const taskSchema = new mongoose.Schema(
   {
     title: {
@@ -9,21 +9,28 @@ const taskSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['Open', 'Claimed', 'Submitted', 'Approved', 'Rejected'],
+      enum: [
+        "Open",
+        "Claimed",
+        "Submitted",
+        "Approved",
+        "Rejected",
+        "Request Revision",
+      ],
     },
     assignedTo: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
+      ref: "User",
     },
     dueDate: {
       type: String,
     },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
+      ref: "User",
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
-module.exports = mongoose.model('Task', taskSchema);
+module.exports = mongoose.model("Task", taskSchema);

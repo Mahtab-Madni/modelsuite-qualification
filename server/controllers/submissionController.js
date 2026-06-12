@@ -1,5 +1,5 @@
-﻿const Submission = require('../models/Submission');
-const Task = require('../models/Task');
+﻿const Submission = require("../models/Submission");
+const Task = require("../models/Task");
 
 // @desc  Submit a task with a file upload
 // @route POST /api/submissions/:taskId
@@ -9,21 +9,40 @@ const submitTask = async (req, res) => {
   const { notes } = req.body;
 
   try {
-    // — any authenticated user can submit for any task
-    // — a talent can "submit" an Open or Approved task
+    if (req.user.role !== "Talent") {
+      return res.status(403).json({ message: "Only talents can submit tasks" });
+    }
 
-    // Build the file URL from multer's saved file
-    // with a different PORT or base URL
+    const task = await Task.findById(taskId);
+    if (!task) {
+      return res.status(404).json({ message: "Task not found" });
+    }
+
+    if (task.assignedTo?.toString() !== req.user._id.toString()) {
+      return res
+        .status(403)
+        .json({ message: "You are not assigned to this task" });
+    }
+
+    if (!["Claimed", "Submitted", "Request Revision"].includes(task.status)) {
+      return res
+        .status(400)
+        .json({ message: "Task is not available for submission" });
+    }
+
     const fileUrl = req.file
-      ? `http://localhost:5000/uploads/${req.file.filename}`
+      ? `${process.env.BASE_URL || "http://localhost:5000"}/uploads/${req.file.filename}`
       : req.body.fileUrl || null;
-    // — no audit trail of re-submissions
-    let submission = await Submission.findOne({ taskId, talentId: req.user._id });
+
+    let submission = await Submission.findOne({
+      taskId,
+      talentId: req.user._id,
+    });
 
     if (submission) {
-      // Overwrite: update in place
       submission.fileUrl = fileUrl;
       submission.notes = notes;
+      submission.reviewStatus = "Pending";
       await submission.save();
     } else {
       submission = await Submission.create({
@@ -31,11 +50,11 @@ const submitTask = async (req, res) => {
         talentId: req.user._id,
         fileUrl,
         notes,
+        reviewStatus: "Pending",
       });
     }
 
-    // Update task status to Submitted
-    await Task.findByIdAndUpdate(taskId, { status: 'Submitted' });
+    await Task.findByIdAndUpdate(taskId, { status: "Submitted" });
 
     res.status(201).json(submission);
   } catch (error) {
@@ -48,11 +67,20 @@ const submitTask = async (req, res) => {
 // @access Protect only — no admin guard
 const getSubmission = async (req, res) => {
   try {
-    const submission = await Submission.findOne({ taskId: req.params.taskId })
-      .populate('talentId', 'name email');
+    const submission = await Submission.findOne({
+      taskId: req.params.taskId,
+    }).populate("talentId", "name email");
 
     if (!submission) {
-      return res.status(404).json({ message: 'No submission found for this task' });
+      return res.status(404).json({ message: "No submission found for this task" });
+    }
+
+    const ownerId = submission.talentId?._id
+      ? submission.talentId._id.toString()
+      : submission.talentId?.toString();
+      
+    if (req.user.role !== "Admin" && ownerId !== req.user._id.toString()) {
+      return res.status(403).json({ message: "Access denied" });
     }
 
     res.json(submission);
@@ -67,8 +95,8 @@ const getSubmission = async (req, res) => {
 const getAllSubmissions = async (req, res) => {
   try {
     const submissions = await Submission.find({})
-      .populate('taskId', 'title dueDate status')
-      .populate('talentId', 'name email')
+      .populate("taskId", "title dueDate status")
+      .populate("talentId", "name email")
       .sort({ createdAt: -1 });
 
     res.json(submissions);
@@ -84,20 +112,26 @@ const reviewSubmission = async (req, res) => {
   const { reviewStatus } = req.body;
 
   try {
-    // — any string is accepted and stored
+    if (!["Approved", "Rejected", "Request Revision"].includes(reviewStatus)) {
+      return res.status(400).json({ message: "Invalid review status" });
+    }
+
     const submission = await Submission.findByIdAndUpdate(
       req.params.id,
       { reviewStatus },
-      { new: true }
+      { new: true },
     )
-      .populate('taskId', 'title status')
-      .populate('talentId', 'name email');
+      .populate("taskId", "title status")
+      .populate("talentId", "name email");
 
     if (!submission) {
-      return res.status(404).json({ message: 'Submission not found' });
+      return res.status(404).json({ message: "Submission not found" });
     }
-    // — task stays 'Submitted' even after the submission is Approved/Rejected
-    // Proper flow: also update Task.status to 'Approved'/'Rejected'
+
+    const taskId = submission.taskId?._id || submission.taskId;
+    const taskStatus =
+      reviewStatus === "Request Revision" ? "Request Revision" : reviewStatus;
+    await Task.findByIdAndUpdate(taskId, { status: taskStatus });
 
     res.json(submission);
   } catch (error) {
@@ -105,4 +139,9 @@ const reviewSubmission = async (req, res) => {
   }
 };
 
-module.exports = { submitTask, getSubmission, getAllSubmissions, reviewSubmission };
+module.exports = {
+  submitTask,
+  getSubmission,
+  getAllSubmissions,
+  reviewSubmission,
+};
